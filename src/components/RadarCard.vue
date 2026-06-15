@@ -121,6 +121,8 @@ function buildRadarOption(flashState = 0): any {
           {
             value: stockValues,
             name: '库存',
+            symbol: 'circle',
+            symbolSize: 10,
             areaStyle: {
               color: new echarts.graphic.RadialGradient(0.5, 0.5, 1, [
                 { offset: 0, color: 'rgba(139,92,246,0.4)' },
@@ -133,6 +135,16 @@ function buildRadarOption(flashState = 0): any {
             },
             itemStyle: {
               color: '#ff2d78',
+              borderColor: '#fff',
+              borderWidth: 2,
+              shadowColor: 'rgba(255,45,120,0.6)',
+              shadowBlur: 8,
+            },
+            emphasis: {
+              itemStyle: {
+                borderWidth: 3,
+                shadowBlur: 12,
+              },
             },
           },
         ],
@@ -165,7 +177,7 @@ function buildRadarOption(flashState = 0): any {
 }
 
 let animationTimer: number | null = null
-let flashState = 0
+let flashOn = false
 
 function initChart() {
   if (!chartContainer.value) return
@@ -174,23 +186,25 @@ function initChart() {
   updateChart()
   startAnimation()
   
-  chartInstance.value.on('click', (params: any) => {
-    const now = Date.now()
-    
-    if (now - lastClickTime.value < CLICK_DELAY) {
-      emit('dblclick', props.machineId)
-      lastClickTime.value = 0
-      return
+  chartInstance.value.on('click', handleChartClick)
+}
+
+function handleChartClick(params: any) {
+  const now = Date.now()
+  
+  if (now - lastClickTime.value < CLICK_DELAY) {
+    emit('dblclick', props.machineId)
+    lastClickTime.value = 0
+    return
+  }
+  
+  lastClickTime.value = now
+  
+  setTimeout(() => {
+    if (lastClickTime.value === now && !isReadOnly.value) {
+      handleRadarClick(params)
     }
-    
-    lastClickTime.value = now
-    
-    setTimeout(() => {
-      if (lastClickTime.value === now && !isReadOnly.value) {
-        handleRadarClick(params)
-      }
-    }, CLICK_DELAY)
-  })
+  }, CLICK_DELAY)
 }
 
 function handleRadarClick(params: any) {
@@ -198,11 +212,15 @@ function handleRadarClick(params: any) {
   
   let targetIndex: number | null = null
   
-  if (params.componentType === 'radar' || params.seriesType === 'radar') {
-    targetIndex = params.indicatorIndex ?? params.dataIndex ?? null
+  if (params.dataIndex != null && params.dataIndex >= 0 && params.dataIndex < machine.value.series.length) {
+    targetIndex = params.dataIndex
   }
   
-  if (params.name && typeof params.name === 'string') {
+  if (params.indicatorIndex != null && params.indicatorIndex >= 0 && params.indicatorIndex < machine.value.series.length) {
+    targetIndex = params.indicatorIndex
+  }
+  
+  if (targetIndex == null && params.name && typeof params.name === 'string') {
     const foundIndex = inventoryStore.seriesList.findIndex(s => s.name === params.name)
     if (foundIndex >= 0) {
       targetIndex = foundIndex
@@ -229,18 +247,17 @@ function handleLegendClick(index: number) {
 function startAnimation() {
   stopAnimation()
   if (lowStockIndices.value.length > 0) {
-    const animate = () => {
-      flashState = (Math.sin(Date.now() / 400) + 1) / 2
-      updateChart(flashState)
-      animationTimer = requestAnimationFrame(animate)
-    }
-    animationTimer = requestAnimationFrame(animate)
+    flashOn = true
+    animationTimer = window.setInterval(() => {
+      flashOn = !flashOn
+      updateChart(flashOn ? 1 : 0)
+    }, 500)
   }
 }
 
 function stopAnimation() {
   if (animationTimer) {
-    cancelAnimationFrame(animationTimer)
+    clearInterval(animationTimer)
     animationTimer = null
   }
 }
@@ -248,7 +265,7 @@ function stopAnimation() {
 function updateChart(state = 0) {
   if (!chartInstance.value) return
   const option = buildRadarOption(state)
-  chartInstance.value.setOption(option, true)
+  chartInstance.value.setOption(option, false)
 }
 
 watch(() => machine.value?.series, () => {
@@ -314,10 +331,23 @@ onUnmounted(() => {
         ></span>
         <span class="legend-text">{{ inventoryStore.seriesList[index].name }}</span>
         <span class="legend-stock">{{ series.stock }}</span>
+        <span 
+          v-if="series.isLowStock && !series.isRestocked && !isReadOnly" 
+          class="restock-badge"
+          @click.stop="handleLegendClick(index)"
+        >
+          补货
+        </span>
+        <span 
+          v-if="series.isRestocked" 
+          class="restocked-badge"
+        >
+          已补货
+        </span>
       </div>
     </div>
     <div v-if="!isReadOnly && hasLowStock && isHighlighted" class="restock-hint">
-      点击红色系列标记补货
+      点击红色系列或「补货」按钮标记补货
     </div>
   </div>
 </template>
@@ -405,8 +435,8 @@ onUnmounted(() => {
 
 .stock-legend {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 4px 8px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px 12px;
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid rgba(255,255,255,0.05);
@@ -492,5 +522,42 @@ onUnmounted(() => {
   color: #ff3b30;
   opacity: 0.7;
   animation: text-pulse 1.5s ease-in-out infinite;
+}
+
+.restock-badge {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #ff3b30 0%, #ff6b60 100%);
+  color: #fff;
+  margin-left: auto;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(255,59,48,0.4);
+}
+
+.restock-badge:hover {
+  transform: scale(1.05);
+  box-shadow: 0 3px 12px rgba(255,59,48,0.6);
+}
+
+.restocked-badge {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(0,122,255,0.2);
+  color: #007aff;
+  margin-left: auto;
+  border: 1px solid rgba(0,122,255,0.4);
+}
+
+.legend-item {
+  position: relative;
+}
+
+.legend-item.clickable {
+  cursor: pointer;
 }
 </style>

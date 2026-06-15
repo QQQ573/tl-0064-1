@@ -209,6 +209,7 @@ onMounted(() => {
   position: relative;
   z-index: 5;
   overflow: hidden;
+  min-height: 0;
 }
 
 .content-area {

@@ -223,11 +223,13 @@ watch(
   async (newVal) => {
     if (newVal) {
       await nextTick()
-      if (!chartInstance.value) {
+      await new Promise(resolve => setTimeout(resolve, 150))
+      if (chartInstance.value) {
+        chartInstance.value.dispose()
+        chartInstance.value = null
+      }
+      if (chartContainer.value) {
         initChart()
-      } else {
-        updateChart()
-        chartInstance.value.resize()
       }
     }
   }

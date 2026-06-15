@@ -102,6 +102,8 @@ function getEventTypeClass(type: 'low_stock' | 'restocked'): string {
   flex-direction: column;
   transition: width 0.3s ease;
   flex-shrink: 0;
+  height: 100%;
+  min-height: 0;
 }
 
 .timeline-sidebar.collapsed {
