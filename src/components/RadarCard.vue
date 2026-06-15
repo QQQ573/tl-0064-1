@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import * as echarts from 'echarts'
 import { useInventoryStore } from '@/stores/inventoryStore'
 import { useFilterStore } from '@/stores/filterStore'
+import { useWorkOrderStore } from '@/stores/workOrderStore'
 import { useSingleResize } from '@/composables/useResize'
 import { useDevice } from '@/composables/useDevice'
 import type { SeriesInventory } from '@/types'
@@ -17,6 +18,7 @@ const emit = defineEmits<{
 
 const inventoryStore = useInventoryStore()
 const filterStore = useFilterStore()
+const workOrderStore = useWorkOrderStore()
 const { isReadOnly } = useDevice()
 
 type EChartsInstance = {
@@ -41,6 +43,12 @@ const lowStockIndices = computed(() => {
     .map((s, i) => (s.isLowStock && !s.isRestocked) ? i : -1)
     .filter(i => i >= 0)
 })
+
+const hasPendingOrderForSeries = (seriesId: string) => {
+  return workOrderStore.workOrders.some(
+    o => o.machineId === props.machineId && o.seriesId === seriesId && o.status !== 'shelved'
+  )
+}
 
 function getSeriesColor(series: SeriesInventory, index: number): string {
   const seriesDef = inventoryStore.seriesList[index]
@@ -230,7 +238,7 @@ function handleRadarClick(params: any) {
   if (targetIndex != null && targetIndex >= 0 && targetIndex < machine.value.series.length) {
     const targetSeries = machine.value.series[targetIndex]
     if (targetSeries.isLowStock && !targetSeries.isRestocked) {
-      inventoryStore.markRestocked(props.machineId, targetSeries.seriesId)
+      createWorkOrder(targetSeries.seriesId)
     }
   }
 }
@@ -240,8 +248,55 @@ function handleLegendClick(index: number) {
   
   const series = machine.value.series[index]
   if (series.isLowStock && !series.isRestocked) {
-    inventoryStore.markRestocked(props.machineId, series.seriesId)
+    createWorkOrder(series.seriesId)
   }
+}
+
+function createWorkOrder(seriesId: string) {
+  const order = workOrderStore.createOrder({
+    machineId: props.machineId,
+    seriesId,
+  })
+  emitWorkOrderCreated(order.id)
+}
+
+function emitWorkOrderCreated(orderId: string) {
+  const flashEl = document.createElement('div')
+  flashEl.className = 'toast-notification'
+  flashEl.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#34d399;box-shadow:0 0 8px #34d399"></span>
+      <span style="font-weight:500">工单已创建 #${orderId.slice(-6)}</span>
+    </div>
+  `
+  Object.assign(flashEl.style, {
+    position: 'fixed',
+    top: '80px',
+    right: '350px',
+    zIndex: '99999',
+    background: 'rgba(16,185,129,0.15)',
+    border: '1px solid rgba(16,185,129,0.5)',
+    color: '#34d399',
+    padding: '10px 16px',
+    borderRadius: '8px',
+    fontSize: '13px',
+    backdropFilter: 'blur(10px)',
+    boxShadow: '0 4px 20px rgba(16,185,129,0.2)',
+    transition: 'all 0.3s ease',
+    transform: 'translateX(100%)',
+    opacity: '0',
+    fontFamily: 'Space Grotesk, sans-serif',
+  })
+  document.body.appendChild(flashEl)
+  requestAnimationFrame(() => {
+    flashEl.style.transform = 'translateX(0)'
+    flashEl.style.opacity = '1'
+  })
+  setTimeout(() => {
+    flashEl.style.transform = 'translateX(100%)'
+    flashEl.style.opacity = '0'
+    setTimeout(() => flashEl.remove(), 300)
+  }, 2000)
 }
 
 function startAnimation() {
@@ -334,9 +389,10 @@ onUnmounted(() => {
         <span 
           v-if="series.isLowStock && !series.isRestocked && !isReadOnly" 
           class="restock-badge"
+          :class="{ 'has-order': hasPendingOrderForSeries(series.seriesId) }"
           @click.stop="handleLegendClick(index)"
         >
-          补货
+          {{ hasPendingOrderForSeries(series.seriesId) ? '工单中' : '创建工单' }}
         </span>
         <span 
           v-if="series.isRestocked" 
@@ -347,7 +403,7 @@ onUnmounted(() => {
       </div>
     </div>
     <div v-if="!isReadOnly && hasLowStock && isHighlighted" class="restock-hint">
-      点击红色系列或「补货」按钮标记补货
+      点击红色系列创建补货工单
     </div>
   </div>
 </template>
@@ -535,9 +591,16 @@ onUnmounted(() => {
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 0 2px 8px rgba(255,59,48,0.4);
+  white-space: nowrap;
 }
 
-.restock-badge:hover {
+.restock-badge.has-order {
+  background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+  box-shadow: 0 2px 8px rgba(245,158,11,0.4);
+  cursor: default;
+}
+
+.restock-badge:hover:not(.has-order) {
   transform: scale(1.05);
   box-shadow: 0 3px 12px rgba(255,59,48,0.6);
 }

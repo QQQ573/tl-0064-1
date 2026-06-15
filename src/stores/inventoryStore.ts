@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { MachineInventory, Series } from '@/types'
+import type { MachineInventory, Series, SeriesInventory } from '@/types'
 import { SERIES_LIST, MOCK_MACHINES } from '@/data/mockData'
 import { useTimelineStore } from './timelineStore'
 
@@ -46,6 +46,12 @@ export const useInventoryStore = defineStore('inventory', () => {
     return series?.stock ?? 0
   }
 
+  function getSeriesInventory(machineId: number, seriesId: string): SeriesInventory | undefined {
+    const machine = machines.value.find(m => m.machineId === machineId)
+    if (!machine) return undefined
+    return machine.series.find(s => s.seriesId === seriesId)
+  }
+
   function hasLowStock(machineId: number): boolean {
     const machine = machines.value.find(m => m.machineId === machineId)
     if (!machine) return false
@@ -71,6 +77,25 @@ export const useInventoryStore = defineStore('inventory', () => {
       timestamp: Date.now(),
       stockLevel: series.stock,
     })
+  }
+
+  function updateStockWithRestockMark(
+    machineId: number,
+    seriesId: string,
+    newStock: number,
+    handler: string = '',
+    orderId: string = ''
+  ) {
+    const machine = machines.value.find(m => m.machineId === machineId)
+    if (!machine) return
+
+    const series = machine.series.find(s => s.seriesId === seriesId)
+    if (!series) return
+
+    series.stock = Math.min(12, Math.max(0, newStock))
+    series.isLowStock = series.stock <= 2
+    series.isRestocked = true
+    series.lastUpdated = Date.now()
   }
 
   function updateStock(machineId: number, seriesId: string, newStock: number) {
@@ -105,8 +130,10 @@ export const useInventoryStore = defineStore('inventory', () => {
     getMachineById,
     getSeriesById,
     getSeriesStock,
+    getSeriesInventory,
     hasLowStock,
     markRestocked,
     updateStock,
+    updateStockWithRestockMark,
   }
 })

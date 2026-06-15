@@ -7,10 +7,12 @@ import TimelineSidebar from '@/components/TimelineSidebar.vue'
 import ConsumptionModal from '@/components/ConsumptionModal.vue'
 import { useInventoryStore } from '@/stores/inventoryStore'
 import { useTimelineStore } from '@/stores/timelineStore'
+import { useWorkOrderStore } from '@/stores/workOrderStore'
 import { useDevice } from '@/composables/useDevice'
 
 const inventoryStore = useInventoryStore()
 const timelineStore = useTimelineStore()
+const workOrderStore = useWorkOrderStore()
 const { isReadOnly } = useDevice()
 
 const showModal = ref(false)
@@ -29,6 +31,7 @@ function handleCloseModal() {
 onMounted(() => {
   timelineStore.loadMockData()
   inventoryStore.loadMockData()
+  workOrderStore.loadFromStore()
 })
 </script>
 
@@ -73,7 +76,7 @@ onMounted(() => {
 
     <div class="app-footer">
       <span class="footer-text">
-        双击雷达图查看近6小时消耗趋势 · 点击低库存系列标记补货
+        双击雷达图查看近6小时消耗趋势 · 点击红色系列创建补货工单 · 右侧切换调度看板管理工单
       </span>
     </div>
   </div>

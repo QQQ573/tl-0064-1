@@ -39,3 +39,20 @@ export interface FilterState {
   selectedSeries: string[]
   hasHiddenOnly: boolean
 }
+
+export type WorkOrderPriority = 'urgent' | 'normal'
+export type WorkOrderStatus = 'pending' | 'picking' | 'shelved'
+
+export interface WorkOrder {
+  id: string
+  machineId: number
+  seriesId: string
+  priority: WorkOrderPriority
+  handler: string
+  status: WorkOrderStatus
+  createdAt: number
+  completedAt: number | null
+  actualQty: number | null
+  remark: string
+  creator: string
+}
