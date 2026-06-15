@@ -27,8 +27,8 @@ function handleCloseModal() {
 }
 
 onMounted(() => {
-  inventoryStore.loadMockData()
   timelineStore.loadMockData()
+  inventoryStore.loadMockData()
 })
 </script>
 

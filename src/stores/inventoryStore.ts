@@ -10,6 +10,25 @@ export const useInventoryStore = defineStore('inventory', () => {
 
   function loadMockData() {
     machines.value = JSON.parse(JSON.stringify(MOCK_MACHINES))
+    
+    const timelineStore = useTimelineStore()
+    const now = Date.now()
+    let eventIdx = 0
+    
+    machines.value.forEach(machine => {
+      machine.series.forEach(series => {
+        if (series.isLowStock && !series.isRestocked) {
+          timelineStore.addEvent({
+            id: `auto-event-${eventIdx++}-${now}`,
+            machineId: machine.machineId,
+            seriesId: series.seriesId,
+            eventType: 'low_stock',
+            timestamp: now - Math.floor(Math.random() * 30) * 60 * 1000,
+            stockLevel: series.stock,
+          })
+        }
+      })
+    })
   }
 
   const getMachineById = computed(() => {

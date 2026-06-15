@@ -58,18 +58,31 @@ function buildLineOption(): any {
       data,
       smooth: true,
       symbol: 'circle',
-      symbolSize: 6,
+      symbolSize: 8,
       lineStyle: {
-        width: 2,
+        width: 3,
         color: seriesDef.color,
+        shadowColor: seriesDef.color + '80',
+        shadowBlur: 8,
       },
       itemStyle: {
         color: seriesDef.color,
+        borderWidth: 2,
+        borderColor: '#fff',
+      },
+      emphasis: {
+        focus: 'series',
+        lineStyle: {
+          width: 5,
+        },
+        itemStyle: {
+          borderWidth: 3,
+        },
       },
       areaStyle: {
         color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: seriesDef.color + '40' },
-          { offset: 1, color: seriesDef.color + '05' },
+          { offset: 0, color: seriesDef.color + '30' },
+          { offset: 1, color: seriesDef.color + '00' },
         ]),
       },
     }
@@ -79,18 +92,45 @@ function buildLineOption(): any {
     backgroundColor: 'transparent',
     tooltip: {
       trigger: 'axis',
-      backgroundColor: 'rgba(10,10,15,0.95)',
-      borderColor: 'rgba(139,92,246,0.5)',
+      backgroundColor: 'rgba(10,10,15,0.98)',
+      borderColor: 'rgba(139,92,246,0.6)',
       borderWidth: 1,
       textStyle: {
         color: '#fff',
-        fontSize: 12,
+        fontSize: 13,
       },
+      padding: [12, 16],
       axisPointer: {
         type: 'cross',
         lineStyle: {
-          color: 'rgba(139,92,246,0.3)',
+          color: 'rgba(139,92,246,0.4)',
+          type: 'dashed',
+          width: 1,
         },
+        label: {
+          backgroundColor: 'rgba(139,92,246,0.8)',
+          color: '#fff',
+          fontSize: 11,
+        },
+      },
+      formatter: (params: any) => {
+        if (!params || params.length === 0) return ''
+        let html = `<div style="font-weight:600;font-size:13px;margin-bottom:8px;color:#e4e4e7">⏰ ${params[0].axisValue}</div>`
+        params.forEach((p: any) => {
+          html += `
+            <div style="display:flex;align-items:center;gap:8px;margin:4px 0">
+              <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color};box-shadow:0 0 6px ${p.color}"></span>
+              <span style="flex:1;color:#a1a1aa">${p.seriesName}</span>
+              <span style="font-weight:700;color:#fff;font-family:'Space Grotesk',sans-serif">${p.value} 盒</span>
+            </div>
+          `
+        })
+        const total = params.reduce((sum: number, p: any) => sum + (p.value || 0), 0)
+        html += `<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.1);display:flex;justify-content:space-between">
+          <span style="color:#71717a">合计消耗</span>
+          <span style="font-weight:700;color:#8b5cf6;font-family:'Space Grotesk',sans-serif">${total} 盒</span>
+        </div>`
+        return html
       },
     },
     legend: {
@@ -98,17 +138,18 @@ function buildLineOption(): any {
       top: 10,
       textStyle: {
         color: '#a1a1aa',
-        fontSize: 11,
+        fontSize: 12,
+        fontWeight: 500,
       },
-      itemWidth: 16,
-      itemHeight: 8,
-      itemGap: 16,
+      itemWidth: 20,
+      itemHeight: 10,
+      itemGap: 20,
     },
     grid: {
       left: '3%',
-      right: '4%',
+      right: '3%',
       bottom: '3%',
-      top: 60,
+      top: 70,
       containLabel: true,
     },
     xAxis: {
@@ -117,12 +158,18 @@ function buildLineOption(): any {
       data: timestamps.map(t => formatTime(t)),
       axisLine: {
         lineStyle: {
-          color: 'rgba(255,255,255,0.1)',
+          color: 'rgba(255,255,255,0.15)',
+          width: 1,
         },
       },
       axisLabel: {
-        color: '#71717a',
-        fontSize: 10,
+        color: '#a1a1aa',
+        fontSize: 11,
+        fontWeight: 500,
+        fontFamily: 'Space Grotesk, sans-serif',
+      },
+      axisTick: {
+        show: false,
       },
       splitLine: {
         show: false,
@@ -132,20 +179,26 @@ function buildLineOption(): any {
       type: 'value',
       name: '消耗盒数',
       nameTextStyle: {
-        color: '#71717a',
-        fontSize: 10,
-        padding: [0, 40, 0, 0],
+        color: '#a1a1aa',
+        fontSize: 11,
+        fontWeight: 500,
+        padding: [0, 0, 10, 0],
       },
       axisLine: {
         show: false,
       },
+      axisTick: {
+        show: false,
+      },
       axisLabel: {
-        color: '#71717a',
-        fontSize: 10,
+        color: '#a1a1aa',
+        fontSize: 11,
+        fontFamily: 'Space Grotesk, sans-serif',
       },
       splitLine: {
         lineStyle: {
-          color: 'rgba(255,255,255,0.05)',
+          color: 'rgba(255,255,255,0.06)',
+          type: 'dashed',
         },
       },
     },
@@ -275,12 +328,12 @@ function handleOverlayClick(e: MouseEvent) {
   border: 1px solid rgba(139,92,246,0.3);
   border-radius: 16px;
   width: 100%;
-  max-width: 800px;
+  max-width: 900px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
   box-shadow: 0 20px 60px rgba(0,0,0,0.5),
-              0 0 40px rgba(139,92,246,0.1);
+              0 0 40px rgba(139,92,246,0.15);
 }
 
 .modal-header {
@@ -326,13 +379,13 @@ function handleOverlayClick(e: MouseEvent) {
 
 .modal-body {
   flex: 1;
-  padding: 20px 24px;
-  min-height: 400px;
+  padding: 24px 28px;
+  min-height: 450px;
 }
 
 .chart-container {
   width: 100%;
-  height: 380px;
+  height: 420px;
 }
 
 .modal-footer {

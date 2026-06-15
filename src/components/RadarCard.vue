@@ -53,24 +53,23 @@ function buildRadarOption(flashState = 0): any {
   if (!machine.value) return {}
 
   const { seriesList } = inventoryStore
-  const stockValues = machine.value.series.map(s => s.stock)
   
   const indicators = seriesList.map((series, index) => {
+    const seriesInv = machine.value!.series[index]
+    let nameColor = '#a1a1aa'
+    if (seriesInv.isLowStock && !seriesInv.isRestocked) {
+      nameColor = flashState > 0.5 ? '#ff3b30' : '#ff6b60'
+    } else if (seriesInv.isRestocked) {
+      nameColor = '#007aff'
+    }
     return {
       name: series.name,
       max: 12,
+      color: nameColor,
     }
   })
 
-  const axisNameColors = seriesList.map((series, index) => {
-    const seriesInv = machine.value!.series[index]
-    if (seriesInv.isLowStock && !seriesInv.isRestocked) {
-      return flashState > 0.5 ? '#ff3b30' : '#ff6b60'
-    } else if (seriesInv.isRestocked) {
-      return '#007aff'
-    }
-    return '#a1a1aa'
-  })
+  const stockValues = machine.value.series.map(s => s.stock)
 
   return {
     radar: {
@@ -80,12 +79,25 @@ function buildRadarOption(flashState = 0): any {
       center: ['50%', '55%'],
       radius: '65%',
       axisName: {
-        color: (params: any) => axisNameColors[params.dataIndex],
+        color: (params: any) => {
+          const idx = params.indicatorIndex ?? params.dataIndex
+          if (idx == null) return '#a1a1aa'
+          const seriesInv = machine.value!.series[idx]
+          if (!seriesInv) return '#a1a1aa'
+          if (seriesInv.isLowStock && !seriesInv.isRestocked) {
+            return flashState > 0.5 ? '#ff3b30' : '#ff6b60'
+          } else if (seriesInv.isRestocked) {
+            return '#007aff'
+          }
+          return '#a1a1aa'
+        },
         fontSize: 10,
         fontFamily: 'Space Grotesk, sans-serif',
         fontWeight: (params: any) => {
-          const seriesInv = machine.value!.series[params.dataIndex]
-          return (seriesInv.isLowStock && !seriesInv.isRestocked) ? 'bold' : 'normal'
+          const idx = params.indicatorIndex ?? params.dataIndex
+          if (idx == null) return 'normal'
+          const seriesInv = machine.value!.series[idx]
+          return (seriesInv?.isLowStock && !seriesInv?.isRestocked) ? 'bold' : 'normal'
         },
       },
       splitLine: {
@@ -97,18 +109,8 @@ function buildRadarOption(flashState = 0): any {
         show: false,
       },
       axisLine: {
-        lineStyle: (params: any) => {
-          const seriesInv = machine.value!.series[params.indicatorIndex ?? params.dataIndex]
-          if (!seriesInv) return { color: 'rgba(255,255,255,0.1)' }
-          if (seriesInv.isLowStock && !seriesInv.isRestocked) {
-            return { 
-              color: flashState > 0.5 ? '#ff3b30' : 'rgba(255,59,48,0.4)',
-              width: 2,
-            }
-          } else if (seriesInv.isRestocked) {
-            return { color: '#007aff', width: 2 }
-          }
-          return { color: 'rgba(255,255,255,0.1)' }
+        lineStyle: {
+          color: 'rgba(255,255,255,0.1)',
         },
       },
     },
@@ -151,7 +153,10 @@ function buildRadarOption(flashState = 0): any {
         return machine.value.series
           .map((s, i) => {
             const series = inventoryStore.seriesList[i]
-            return `${series.name}: ${s.stock} 盒`
+            let flag = ''
+            if (s.isLowStock && !s.isRestocked) flag = ' 🔴低库存'
+            else if (s.isRestocked) flag = ' 🔵已补货'
+            return `${series.name}: ${s.stock} 盒${flag}`
           })
           .join('<br/>')
       },
@@ -191,21 +196,24 @@ function initChart() {
 function handleRadarClick(params: any) {
   if (!machine.value || isReadOnly.value) return
   
-  let targetSeries: SeriesInventory | null = null
-  let indicatorIndex: number | null = null
+  let targetIndex: number | null = null
   
   if (params.componentType === 'radar' || params.seriesType === 'radar') {
-    indicatorIndex = params.indicatorIndex ?? params.dataIndex
-  } else if (params.name === '库存' && params.dataIndex != null) {
-    indicatorIndex = params.dataIndex
+    targetIndex = params.indicatorIndex ?? params.dataIndex ?? null
   }
   
-  if (indicatorIndex != null && indicatorIndex >= 0 && indicatorIndex < machine.value.series.length) {
-    targetSeries = machine.value.series[indicatorIndex]
+  if (params.name && typeof params.name === 'string') {
+    const foundIndex = inventoryStore.seriesList.findIndex(s => s.name === params.name)
+    if (foundIndex >= 0) {
+      targetIndex = foundIndex
+    }
   }
   
-  if (targetSeries && targetSeries.isLowStock && !targetSeries.isRestocked) {
-    inventoryStore.markRestocked(props.machineId, targetSeries.seriesId)
+  if (targetIndex != null && targetIndex >= 0 && targetIndex < machine.value.series.length) {
+    const targetSeries = machine.value.series[targetIndex]
+    if (targetSeries.isLowStock && !targetSeries.isRestocked) {
+      inventoryStore.markRestocked(props.machineId, targetSeries.seriesId)
+    }
   }
 }
 
